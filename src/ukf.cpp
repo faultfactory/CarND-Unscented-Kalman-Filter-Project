@@ -49,11 +49,19 @@ UKF::UKF() {
   
   /**
   TODO:
-
+  
   Complete the initialization. See ukf.h for other member properties.
 
   Hint: one or more values initialized above might be wildly off...
   */
+  // State dimension
+  n_x_ = 5; 
+
+  // Augmented State Dimension
+  n_aug_=7;  
+
+  // Lambda Spreading Factor
+  lambda_ = 3-n_aug_;
 }
 
 UKF::~UKF() {}
@@ -69,6 +77,75 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
   Complete this function! Make sure you switch between lidar and radar
   measurements.
   */
+  if (!is_initialized_) {
+    /**
+    TODO:
+      * Initialize the state x_ with the first measurement.
+      * Create the covariance matrix.
+      * Remember: you'll need to convert radar from polar to cartesian coordinates.
+    */
+    // Initialize previous timestap variable to zero 
+    float previous_timestamp_ = 0;
+    // first measurement
+    cout << "UKF: " << endl;
+    // fill state matrix with zeros
+    x_ << 0.0,0.0,0.0,0.0,0.0;
+
+    // Fill Covariance Matrix with rough starting point
+	  P_ <<     0.1, 0.1, 0.1, 0.1, 0.1,
+		          0.1, 0.1, 0.1, 0.1, 0.1,
+              0.1, 0.1, 0.1, 0.1, 0.1,
+			        0.1, 0.1, 0.1, 0.1, 0.1,
+			        0.1, 0.1, 0.1, 0.1, 0.1; 
+
+    if (meas_package.sensor_type_ == MeasurementPackage::RADAR) {
+      /**
+      Convert radar from polar to cartesian coordinates and initialize state.
+      */
+      VectorXd meas = meas_package.raw_measurements_;
+      float rho_=meas(0);
+      float phi_=meas(1);
+      x_(0) = rho_*cos(phi_);
+      x_(1) = rho_*sin(phi_);
+      x_(2) = 0;
+      x_(3) = 0;
+      x_(4) = 0;
+    }
+    else if (meas_package.sensor_type_ == MeasurementPackage::LASER) {
+      /**
+      Initialize state.
+      */
+      VectorXd meas = meas_package.raw_measurements_;
+      x_(0) = meas(0);
+      x_(1) = meas(1);
+      x_(2) = 0;
+      x_(3) = 0;
+      x_(4) = 0;
+    }
+
+    // done initializing, no need to predict or update
+    is_initialized_ = true;
+    return;
+  }
+
+  /*****************************************************************************
+   *  Prediction
+   ****************************************************************************/
+
+  /**
+   TODO:
+     * Update the state transition matrix F according to the new elapsed time.
+      - Time is measured in seconds.
+     * Update the process noise covariance matrix.
+     * Use noise_ax = 9 and noise_ay = 9 for your Q matrix.
+   */
+  
+  
+  // Get new the delta t
+  float delta_t_ = (meas_package.timestamp_-previous_timestamp_)/1000000.0;
+  previous_timestamp_ = meas_package.timestamp_;
+  
+
 }
 
 /**
