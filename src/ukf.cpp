@@ -127,7 +127,7 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
     is_initialized_ = true;
     return;
   }
-  
+
   // Get new the delta t
   float delta_t_ = (meas_package.timestamp_-previous_timestamp_)/1000000.0;
   previous_timestamp_ = meas_package.timestamp_;
@@ -147,6 +147,108 @@ void UKF::Prediction(double delta_t) {
   Complete this function! Estimate the object's location. Modify the state
   vector, x_. Predict sigma points, the state, and the state covariance matrix.
   */
+
+  //create augmented mean vector
+  VectorXd x_aug = VectorXd(n_aug_);
+
+  //create augmented state covariance
+  MatrixXd P_aug = MatrixXd(n_aug_,n_aug_);
+
+  //create sigma point matrix
+  MatrixXd Xsig_aug = MatrixXd(n_aug_, 2 * n_aug_ + 1);
+
+  //create augmented mean state
+  x_aug.head(5) = x_;
+  x_aug(5)=0;
+  x_aug(6)=0;
+ 
+ //create augmented covariance matrix
+  P_aug.fill(0.0);
+  P_aug.topLeftCorner(n_x_ , n_x_) = P_;
+  P_aug(5,5)=std_a_*std_a_;
+  P_aug(6,6)=std_yawdd_*std_yawdd_;
+  
+  //create square root matrix
+  MatrixXd A =  P_aug.llt().matrixL();
+  
+  //create augmented sigma points
+  Xsig_aug.col(0)=x_aug;
+  
+  for(int i=0;i<n_aug_;i++){
+      Xsig_aug.col(i+1)          =x_aug   + sqrt(lambda_+n_aug_)*A.col(i);
+      Xsig_aug.col(i+1+n_aug_)    =x_aug - sqrt(lambda_+n_aug_)*A.col(i);
+  }
+
+
+float px;
+float py;
+float v;
+float phi;
+float phid;
+float nu_a;
+float nu_phidd;
+
+VectorXd x_n = VectorXd(n_x_);
+
+
+for(int i = 0; i<(2*n_aug_+1);i++){
+    px=Xsig_aug(0,i);
+    py=Xsig_aug(1,i);
+    v=Xsig_aug(2,i);
+    phi=Xsig_aug(3,i);
+    phid=Xsig_aug(4,i);
+    nu_a=Xsig_aug(5,i);
+    nu_phidd=Xsig_aug(6,i);
+    
+    x_n(0)=0.5*delta_t*delta_t*cos(phi)*nu_a;
+    x_n(1)=0.5*delta_t*delta_t*sin(phi)*nu_a;
+    x_n(2)=delta_t*nu_a;
+    x_n(3)=0.5*delta_t*delta_t*nu_phidd;
+    x_n(4)=delta_t*nu_phidd;
+    
+    if(fabs(Xsig_aug(0,4))>0.0001){
+        Xsig_pred_(0,i)=px+x_n(0)+((v/phid)*(sin(phi+phid*delta_t)-sin(phi)));
+        Xsig_pred_(1,i)=py+x_n(1)+((v/phid)*(-cos(phi+phid*delta_t)+cos(phi)));
+        Xsig_pred_(2,i)=v+x_n(2);
+        Xsig_pred_(3,i)=phi+x_n(3)+(phid*delta_t);
+        Xsig_pred_(4,i)=phid+x_n(4);
+    }
+    else{
+        Xsig_pred_(0,i)=px+x_n(0)+(v*cos(phi)*delta_t);
+        Xsig_pred_(1,i)=py+x_n(1)+(v*sin(phi)*delta_t);
+        Xsig_pred_(2,i)=v+x_n(2);
+        Xsig_pred_(3,i)=phi+x_n(3)+(phid*delta_t);
+        Xsig_pred_(4,i)=phid+x_n(4);
+    }
+  }      
+
+  //create vector for weights
+  VectorXd weights = VectorXd(2*n_aug_+1);
+
+  //set weights
+  weights.fill(1/(2*(lambda_+n_aug_)));
+  weights(0)=lambda/(lambda_+n_aug_);
+  
+  //predicted state mean
+  x.fill(0.0);
+  for (int i = 0; i < 2 * n_aug_ + 1; i++) {  //iterate over sigma points
+    x = x+ weights(i) * Xsig_pred.col(i);
+  }
+
+  //predicted state covariance matrix
+  P.fill(0.0);
+  for (int i = 0; i < 2 * n_aug_ + 1; i++) {  //iterate over sigma points
+
+    // state difference
+    VectorXd x_diff = Xsig_pred.col(i) - x;
+    //angle normalization
+    while (x_diff(3)> M_PI) x_diff(3)-=2.*M_PI;
+    while (x_diff(3)<-M_PI) x_diff(3)+=2.*M_PI;
+
+    P = P + weights(i) * x_diff * x_diff.transpose() ;
+  }
+
+
 }
 
 /**
