@@ -227,25 +227,25 @@ for(int i = 0; i<(2*n_aug_+1);i++){
 
   //set weights
   weights.fill(1/(2*(lambda_+n_aug_)));
-  weights(0)=lambda/(lambda_+n_aug_);
+  weights(0)=lambda_/(lambda_+n_aug_);
   
   //predicted state mean
-  x.fill(0.0);
+  x_.fill(0.0);
   for (int i = 0; i < 2 * n_aug_ + 1; i++) {  //iterate over sigma points
-    x = x+ weights(i) * Xsig_pred.col(i);
+    x_ = x_ + weights(i) * Xsig_pred_.col(i);
   }
 
   //predicted state covariance matrix
-  P.fill(0.0);
+  P_.fill(0.0);
   for (int i = 0; i < 2 * n_aug_ + 1; i++) {  //iterate over sigma points
 
     // state difference
-    VectorXd x_diff = Xsig_pred.col(i) - x;
+    VectorXd x_diff = Xsig_pred_.col(i) - x_;
     //angle normalization
     while (x_diff(3)> M_PI) x_diff(3)-=2.*M_PI;
     while (x_diff(3)<-M_PI) x_diff(3)+=2.*M_PI;
 
-    P = P + weights(i) * x_diff * x_diff.transpose() ;
+    P_ = P_ + weights(i) * x_diff * x_diff.transpose() ;
   }
 
 
