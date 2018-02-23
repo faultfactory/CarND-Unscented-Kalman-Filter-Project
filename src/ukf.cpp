@@ -127,19 +127,6 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
     is_initialized_ = true;
     return;
   }
-
-  /*****************************************************************************
-   *  Prediction
-   ****************************************************************************/
-
-  /**
-   TODO:
-     * Update the state transition matrix F according to the new elapsed time.
-      - Time is measured in seconds.
-     * Update the process noise covariance matrix.
-     * Use noise_ax = 9 and noise_ay = 9 for your Q matrix.
-   */
-  
   
   // Get new the delta t
   float delta_t_ = (meas_package.timestamp_-previous_timestamp_)/1000000.0;
