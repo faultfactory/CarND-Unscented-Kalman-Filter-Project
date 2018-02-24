@@ -129,10 +129,18 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
   }
 
   // Get new the delta t
-  float delta_t_ = (meas_package.timestamp_-previous_timestamp_)/1000000.0;
-  previous_timestamp_ = meas_package.timestamp_;
-  
-
+  if (meas_package.sensor_type_ == MeasurementPackage::RADAR && use_radar_==true ){
+    float delta_t_ = (meas_package.timestamp_-previous_timestamp_)/1000000.0;
+    previous_timestamp_ = meas_package.timestamp_;
+    Prediction(delta_t_);
+    UpdateRadar(meas_package);
+  }
+  else if (meas_package.sensor_type_ == MeasurementPackage::LASER && use_radar_==false){
+    float delta_t_ = (meas_package.timestamp_-previous_timestamp_)/1000000.0;
+    previous_timestamp_ = meas_package.timestamp_;
+    Prediction(delta_t_);
+    UpdateLidar(meas_package);
+  }
 }
 
 /**
@@ -223,16 +231,16 @@ for(int i = 0; i<(2*n_aug_+1);i++){
   }      
 
   //create vector for weights
-  VectorXd weights = VectorXd(2*n_aug_+1);
+  weights_ = VectorXd(2*n_aug_+1);
 
   //set weights
-  weights.fill(1/(2*(lambda_+n_aug_)));
-  weights(0)=lambda_/(lambda_+n_aug_);
+  weights_.fill(1/(2*(lambda_+n_aug_)));
+  weights_(0)=lambda_/(lambda_+n_aug_);
   
   //predicted state mean
   x_.fill(0.0);
   for (int i = 0; i < 2 * n_aug_ + 1; i++) {  //iterate over sigma points
-    x_ = x_ + weights(i) * Xsig_pred_.col(i);
+    x_ = x_ + weights_(i) * Xsig_pred_.col(i);
   }
 
   //predicted state covariance matrix
@@ -245,7 +253,7 @@ for(int i = 0; i<(2*n_aug_+1);i++){
     while (x_diff(3)> M_PI) x_diff(3)-=2.*M_PI;
     while (x_diff(3)<-M_PI) x_diff(3)+=2.*M_PI;
 
-    P_ = P_ + weights(i) * x_diff * x_diff.transpose() ;
+    P_ = P_ + weights_(i) * x_diff * x_diff.transpose() ;
   }
 
 
@@ -273,10 +281,29 @@ void UKF::UpdateLidar(MeasurementPackage meas_package) {
 void UKF::UpdateRadar(MeasurementPackage meas_package) {
   /**
   TODO:
-
   Complete this function! Use radar data to update the belief about the object's
   position. Modify the state vector, x_, and covariance, P_.
 
   You'll also need to calculate the radar NIS.
   */
+
+  MatrixXd Zsig = MatrixXd(3,(2*n_aug_+1));
+  for(int i=0; i<(2*n_aug_+1);i++){
+    double px=Xsig_pred_(0,i);
+    double py=Xsig_pred_(1,i);
+    double v=Xsig_pred_(2,i);
+    double phi=Xsig_pred_(3,i);
+    double vx=cos(phi)*v;
+    double vy=sin(phi)*v;
+    
+    Zsig(0,i) = sqrt(px*px + py*py);                        //r
+    Zsig(1,i) = atan2(py,px);                                 //phi
+    Zsig(2,i) = (px*vx + py*vy ) / sqrt(px*px + py*py);   //r_dot 
+  }
+
+  VectorXd z_pred = VectorXd(3);
+  z_pred.fill(0.0);
+  for (int i=0; i<2*n_aug_+1; i++) {
+      z_pred = z_pred + weights_(i) * Zsig.col(i);
+  }
 }
