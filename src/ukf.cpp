@@ -13,7 +13,7 @@ using std::vector;
  */
 UKF::UKF() {
   // if this is false, laser measurements will be ignored (except during init)
-  use_laser_ = false;
+  use_laser_ = true;
 
   // if this is false, radar measurements will be ignored (except during init)
   use_radar_ = true;
@@ -141,9 +141,9 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
   if (meas_package.sensor_type_ == MeasurementPackage::RADAR && use_radar_==true ){
     double delta_t_ = (meas_package.timestamp_-previous_timestamp_)/1000000.0;
     previous_timestamp_ = meas_package.timestamp_;
-    std::cout<<"entering prediction"<<std::endl;
+    //std::cout<<"entering prediction"<<std::endl;
     Prediction(delta_t_);
-    std::cout<<"entering Update"<<std::endl;
+    //std::cout<<"entering Update"<<std::endl;
     UpdateRadar(meas_package);
   }
   else if (meas_package.sensor_type_ == MeasurementPackage::LASER && use_laser_==true){
@@ -263,8 +263,7 @@ for(int i = 0; i<(2*n_aug_+1);i++){
 
     P_ = P_ + weights_(i) * x_diff * x_diff.transpose() ;
   }
-std::cout<<"PredictionComplete"<<std::endl;
-
+//std::cout<<"PredictionComplete"<<std::endl;
 }
 
 /**
@@ -280,6 +279,67 @@ void UKF::UpdateLidar(MeasurementPackage meas_package) {
 
   You'll also need to calculate the lidar NIS.
   */
+
+  MatrixXd Zsig = MatrixXd(2,(2*n_aug_+1));
+  
+  // write predicted sigma points to measurement space
+  //TODO: Ty this via .col method
+  
+  for(int i=0; i<(2*n_aug_+1);i++){
+    double px=Xsig_pred_(0,i);
+    double py=Xsig_pred_(1,i);
+
+    Zsig(0,i) = px; 
+    Zsig(1,i) = py; 
+      }
+
+  // using the previously computed weights, predict the measurement
+  VectorXd z_pred = VectorXd(2);
+  z_pred.fill(0.0);
+  for (int i=0; i<2*n_aug_+1; i++) {
+      z_pred = z_pred + weights_(i) * Zsig.col(i);
+  }
+
+  // innovation covariance matrix 
+  MatrixXd S = MatrixXd(2,2);
+  S.fill(0.0);
+  // Cross Correlation Matrix. - Done in this loop to save computation steps
+  MatrixXd Tc = MatrixXd(n_x_,2);
+  Tc.fill(0.0);
+    for (int i = 0; i < 2 * n_aug_ + 1; i++) {  //2n+1 simga points
+      //residual
+      VectorXd z_diff = Zsig.col(i) - z_pred;
+      S = S + weights_(i) * z_diff * z_diff.transpose();
+
+      // Simultaneously compute Cross correlation Matrix since the equation can use z_diff
+
+      VectorXd x_diff = Xsig_pred_.col(i) - x_;
+      //angle normalization
+      while (x_diff(3)> M_PI) x_diff(3)-=2.*M_PI;
+      while (x_diff(3)<-M_PI) x_diff(3)+=2.*M_PI;
+          
+      Tc = Tc + weights_(i) * x_diff * z_diff.transpose();
+
+
+    }
+  
+  // incorporate measurement noise.
+  MatrixXd R = MatrixXd(2,2);
+  R <<    std_laspx_*std_laspx_, 0,
+          0, std_laspy_*std_laspy_;
+  S = S + R;  
+
+  // UKF update
+  
+  // Reference Tc calculated previously Tc
+  MatrixXd K = Tc*S.inverse();
+  x_ = x_ + K*(meas_package.raw_measurements_ - z_pred);
+  P_ = P_ - K*S*K.transpose();
+
+  // Calculate Radar Measurement NIS
+  VectorXd measdiff = meas_package.raw_measurements_ - z_pred;
+  NIS_lidar_ = measdiff.transpose()*S.inverse()*measdiff; 
+  std::cout<<NIS_lidar<<std::endl;
 }
 
 /**
@@ -363,6 +423,6 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
   // Calculate Radar Measurement NIS
   VectorXd measdiff = meas_package.raw_measurements_ - z_pred;
   NIS_radar_ = measdiff.transpose()*S.inverse()*measdiff; 
-
-  std::cout<<"Radar Update Complete"<<std::endl;
+  std::cout<<NIS_radar<<std::endl;
+  //std::cout<<"Radar Update Complete"<<std::endl;
 }
