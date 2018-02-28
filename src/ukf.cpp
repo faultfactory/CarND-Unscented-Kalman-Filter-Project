@@ -65,6 +65,12 @@ UKF::UKF() {
 
   // Sigma Point prediction matrix. 
   Xsig_pred_ = MatrixXd(n_x_,(2*n_aug_+1));
+
+  // NIS value from lidar measurement
+  NIS_lidar_=0;
+
+  // NIS value from radar measurement
+  NIS_radar_=0;
 }
 
 UKF::~UKF() {}
@@ -87,8 +93,8 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
       * Create the covariance matrix.
       * Remember: you'll need to convert radar from polar to cartesian coordinates.
     */
-    // Initialize previous timestap variable to zero 
-    float previous_timestamp_ = 0;
+    // Initialize previous timestamp to current
+    previous_timestamp_ = meas_package.timestamp_;
     // first measurement
     cout << "UKF: " << endl;
     // fill state matrix with zeros
@@ -133,15 +139,15 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
 
   // Get new the delta t
   if (meas_package.sensor_type_ == MeasurementPackage::RADAR && use_radar_==true ){
-    float delta_t_ = (meas_package.timestamp_-previous_timestamp_)/1000000.0;
+    double delta_t_ = (meas_package.timestamp_-previous_timestamp_)/1000000.0;
     previous_timestamp_ = meas_package.timestamp_;
     std::cout<<"entering prediction"<<std::endl;
     Prediction(delta_t_);
     std::cout<<"entering Update"<<std::endl;
     UpdateRadar(meas_package);
   }
-  else if (meas_package.sensor_type_ == MeasurementPackage::LASER && use_radar_==true){
-    float delta_t_ = (meas_package.timestamp_-previous_timestamp_)/1000000.0;
+  else if (meas_package.sensor_type_ == MeasurementPackage::LASER && use_laser_==true){
+    double delta_t_ = (meas_package.timestamp_-previous_timestamp_)/1000000.0;
     previous_timestamp_ = meas_package.timestamp_;
     Prediction(delta_t_);
     UpdateLidar(meas_package);
@@ -257,7 +263,7 @@ for(int i = 0; i<(2*n_aug_+1);i++){
 
     P_ = P_ + weights_(i) * x_diff * x_diff.transpose() ;
   }
-
+std::cout<<"PredictionComplete"<<std::endl;
 
 }
 
@@ -353,6 +359,10 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
   MatrixXd K = Tc*S.inverse();
   x_ = x_ + K*(meas_package.raw_measurements_ - z_pred);
   P_ = P_ - K*S*K.transpose();
+
+  // Calculate Radar Measurement NIS
+  VectorXd measdiff = meas_package.raw_measurements_ - z_pred;
+  NIS_radar_ = measdiff.transpose()*S.inverse()*measdiff; 
 
   std::cout<<"Radar Update Complete"<<std::endl;
 }

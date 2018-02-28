@@ -70,6 +70,12 @@ public:
   ///* Storage for Previous Timestamp
   long long previous_timestamp_;
 
+  ///* NIS value from lidar measurement
+  double NIS_lidar_;
+
+  ///* NIS value from radar measurement
+  double NIS_radar_;
+
 
   /**
    * Constructor
