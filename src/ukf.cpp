@@ -28,7 +28,7 @@ UKF::UKF() {
   std_a_ = 4;
 
   // Process noise standard deviation yaw acceleration in rad/s^2
-  std_yawdd_ = 1;
+  std_yawdd_ = 1.5;
   
   //DO NOT MODIFY measurement noise values below these are provided by the sensor manufacturer.
   // Laser measurement noise standard deviation position1 in m
@@ -115,11 +115,11 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
       // Fill Covariance Matrix with rough starting point
       // 
       P_.fill(0.05);
-      P_(0,0)=std_laspx_*std_laspx_;
-      P_(1,1)=std_laspy_*std_laspy_;
-      //P_(2,2)=1;
-      //P_(3,3)=1;
-      //P_(4,4)=1;
+      P_(0,0)=std_radr_*std_radphi_;
+      P_(1,1)=std_radr_*std_radphi_;
+      P_(2,2)=0.1;
+      P_(3,3)=0.1;
+      P_(4,4)=0.1;
     }
     else if (meas_package.sensor_type_ == MeasurementPackage::LASER) {
       /**
@@ -129,8 +129,8 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
       x_(0) = meas(0);
       x_(1) = meas(1);
       x_(2) = 0.1;
-      x_(3) = 0.1;
-      x_(4) = 0.5;
+      x_(3) = 0.0;
+      x_(4) = 0.0;
 
       // Fill Covariance Matrix with rough starting point
 	    P_.fill(0.05);
@@ -152,9 +152,7 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
   if (meas_package.sensor_type_ == MeasurementPackage::RADAR && use_radar_==true ){
     double delta_t_ = (meas_package.timestamp_-previous_timestamp_)/1000000.0;
     previous_timestamp_ = meas_package.timestamp_;
-    //std::cout<<"entering prediction"<<std::endl;
     Prediction(delta_t_);
-    //std::cout<<"entering Update"<<std::endl;
     UpdateRadar(meas_package);
   }
   else if (meas_package.sensor_type_ == MeasurementPackage::LASER && use_laser_==true){
@@ -163,7 +161,6 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
     Prediction(delta_t_);
     UpdateLidar(meas_package);
   }
- //std::cout<<P_<<std::endl;
 }
 
 /**
@@ -275,7 +272,6 @@ for(int i = 0; i<(2*n_aug_+1);i++){
 
     P_ = P_ + weights_(i) * x_diff * x_diff.transpose() ;
   }
-//std::cout<<"PredictionComplete"<<std::endl;
 }
 
 /**
@@ -295,15 +291,9 @@ void UKF::UpdateLidar(MeasurementPackage meas_package) {
   MatrixXd Zsig = MatrixXd(2,(2*n_aug_+1));
   
   // write predicted sigma points to measurement space
-  //TODO: Ty this via .col method
-  
-  for(int i=0; i<(2*n_aug_+1);i++){
-    double px=Xsig_pred_(0,i);
-    double py=Xsig_pred_(1,i);
+  Zsig.row(0)=Xsig_pred_.row(0);
+  Zsig.row(1)=Xsig_pred_.row(1);
 
-    Zsig(0,i) = px; 
-    Zsig(1,i) = py; 
-      }
 
   // using the previously computed weights, predict the measurement
   VectorXd z_pred = VectorXd(2);
@@ -351,7 +341,7 @@ void UKF::UpdateLidar(MeasurementPackage meas_package) {
   // Calculate Radar Measurement NIS
   VectorXd measdiff = meas_package.raw_measurements_ - z_pred;
   NIS_lidar_ = measdiff.transpose()*S.inverse()*measdiff; 
-  std::cout<<"L: "<<NIS_lidar_<<std::endl;
+  //std::cout<<"L: "<<NIS_lidar_<<std::endl;
 }
 
 /**
@@ -414,8 +404,6 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
       while (x_diff(3)<-M_PI) x_diff(3)+=2.*M_PI;
           
       Tc = Tc + weights_(i) * x_diff * z_diff.transpose();
-
-
     }
   
   // incorporate measurement noise.
@@ -435,6 +423,5 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
   // Calculate Radar Measurement NIS
   VectorXd measdiff = meas_package.raw_measurements_ - z_pred;
   NIS_radar_ = measdiff.transpose()*S.inverse()*measdiff; 
-  std::cout<<"R: " << NIS_radar_<<std::endl;
-  //std::cout<<"Radar Update Complete"<<std::endl;
+  //std::cout<<"R: " << NIS_radar_<<std::endl;
 }
