@@ -25,10 +25,10 @@ UKF::UKF() {
   P_ = MatrixXd(5, 5);
 
   // Process noise standard deviation longitudinal acceleration in m/s^2
-  std_a_ = 1.5;
+  std_a_ = 4;
 
   // Process noise standard deviation yaw acceleration in rad/s^2
-  std_yawdd_ = 2;
+  std_yawdd_ = 1;
   
   //DO NOT MODIFY measurement noise values below these are provided by the sensor manufacturer.
   // Laser measurement noise standard deviation position1 in m
@@ -106,9 +106,9 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
       VectorXd meas = meas_package.raw_measurements_;
       float rho_=meas(0);
       float phi_=meas(1);
-      x_(0) = std_radr_*std_radphi_;
-      x_(1) = std_radr_*std_radphi_;
-      x_(2) = std_radrd_*std_radr_;
+      x_(0) = rho_*cos(phi_);
+      x_(1) = rho_*sin(phi_);   
+      x_(2) = 0;
       x_(3) = 0;
       x_(4) = 0;
 
@@ -128,17 +128,17 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
       VectorXd meas = meas_package.raw_measurements_;
       x_(0) = meas(0);
       x_(1) = meas(1);
-      x_(2) = 1;
-      x_(3) = 1;
+      x_(2) = 0.1;
+      x_(3) = 0.1;
       x_(4) = 0.5;
 
       // Fill Covariance Matrix with rough starting point
 	    P_.fill(0.05);
       P_(0,0)=std_laspx_*std_laspx_;
       P_(1,1)=std_laspy_*std_laspy_;
-      P_(2,2)=1;
-      P_(3,3)=1;
-      P_(4,4)=1;
+      P_(2,2)=0.1;
+      P_(3,3)=0.1;
+      P_(4,4)=0.1;
     
     }
 
@@ -435,6 +435,6 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
   // Calculate Radar Measurement NIS
   VectorXd measdiff = meas_package.raw_measurements_ - z_pred;
   NIS_radar_ = measdiff.transpose()*S.inverse()*measdiff; 
-  std::cout<<"R:" << NIS_radar_<<std::endl;
+  std::cout<<"R: " << NIS_radar_<<std::endl;
   //std::cout<<"Radar Update Complete"<<std::endl;
 }
